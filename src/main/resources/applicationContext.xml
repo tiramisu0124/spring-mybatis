@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:amq="http://activemq.apache.org/schema/core"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+       http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/context
+       http://www.springframework.org/schema/context/spring-context.xsd
+       http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd
+       http://www.springframework.org/schema/mvc  http://www.springframework.org/schema/mvc/spring-mvc.xsd
+       http://activemq.apache.org/schema/core http://activemq.apache.org/schema/core/activemq-core.xsd
+       http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd ">
+
+    <!--配置数据源-->
+    <bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource">
+        <property name="driverClassName" value="com.mysql.jdbc.Driver"/>
+        <property name="url" value="jdbc:mysql://localhost:3306/h3c"/>
+        <property name="username" value="root"/>
+        <property name="password" value="root"/>
+    </bean>
+    <!--配置sqlSessionFactory-->
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <property name="dataSource" ref="dataSource"/>
+        <property name="mapperLocations" value="classpath:mapper/*.xml"/>
+    </bean>
+    <!--配置mybatis注解-->
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <property name="basePackage" value="com.spring.mybatis.dao"/>
+        <property name="annotationClass" value="com.spring.mybatis.annotation.MyBatisRepository"/>
+    </bean>
+
+    <!--开启注解扫描-->
+    <context:component-scan base-package="com.spring.mybatis"/>
+    <!--开启RequestMapping注解-->
+    <mvc:annotation-driven>
+        <!-- 处理responseBody 里面日期类型 -->
+        <mvc:message-converters>
+            <bean class="org.springframework.http.converter.json.MappingJackson2HttpMessageConverter">
+                <property name="objectMapper">
+                    <bean class="com.fasterxml.jackson.databind.ObjectMapper">
+                        <property name="dateFormat">
+                            <bean class="java.text.SimpleDateFormat">
+                                <constructor-arg type="java.lang.String" value="yyyy-MM-dd HH:mm:ss"/>
+                            </bean>
+                        </property>
+                    </bean>
+                </property>
+            </bean>
+        </mvc:message-converters>
+    </mvc:annotation-driven>
+
+    <!--处理请求转发-->
+    <bean id="viewResolver" class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+        <property name="prefix" value="/jsp/"/>
+        <property name="suffix" value=".jsp"/>
+    </bean>
+
+    <!--声明方面组件-->
+    <!--<bean id="operateLogger" class="com.spring.mybatis.aspect.OperateLogger"/>-->
+    <!--&lt;!&ndash;配置AOP&ndash;&gt;-->
+    <!--<aop:config>-->
+    <!--<aop:aspect ref="operateLogger">-->
+    <!--<aop:before method="log" pointcut="within(com.spring.mybatis.controller..*)"/>-->
+    <!--</aop:aspect>-->
+
+    <!--<aop:aspect ref="operateLogger">-->
+    <!--<aop:around method="log2" pointcut="within(com.spring.mybatis.controller..*)"/>-->
+    <!--</aop:aspect>-->
+    <!--</aop:config>-->
+
+    <!--开启AOP注解扫描-->
+    <aop:aspectj-autoproxy proxy-target-class="true"/>
+
+    <!--声明事物管理组件-->
+    <bean id="txManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource"/>
+    </bean>
+    <!--开启事物注解扫描--><!--方法一-->
+    <!--<tx:annotation-driven transaction-manager="txManager" proxy-target-class="true"/>-->
+    <!--XML配置声明事物范围及类型--><!--方法二-->
+    <tx:advice id="txAdvice" transaction-manager="txManager">
+        <tx:attributes>
+            <tx:method name="find*" read-only="true"/>
+            <tx:method name="add*" propagation="REQUIRED" rollback-for="java.lang.ClassNotFoundException"/>
+            <tx:method name="update*" propagation="REQUIRED"/>
+            <tx:method name="delete*" propagation="REQUIRED"/>
+        </tx:attributes>
+    </tx:advice>
+    <aop:config proxy-target-class="true">
+        <aop:advisor advice-ref="txAdvice" pointcut="within(com.spring.mybatis.controller..*)"/>
+    </aop:config>
+
+</beans>
